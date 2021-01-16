@@ -34,7 +34,7 @@ The time we greeted you.
 ## Example usage
 
 ```
-uses: wellenvogel/action-upload-sftp@v1.0
+uses: wellenvogel/sftp-upload-action@v1.1
 with:
   user: ${{ secrets.REPO_USER }}
   server: ${{ secrets.REPO_SERVER }}
