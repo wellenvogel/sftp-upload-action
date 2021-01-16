@@ -1,0 +1,24 @@
+name: 'Upload Sftp'
+description: 'uploading to an sftp server using ssh2-sftp-client'
+inputs:
+  user:  # id of input
+    description: 'sftp user'
+    required: true
+  server:
+    description: 'sftp server'
+    required: true
+  privateKey:
+    description: 'ssh private key'
+    required: false
+  password:
+    description: 'ssh password'
+    required: false
+  localFile:
+    description: 'the file to upload'
+    required: true
+  remoteDir:
+    description: 'the remote directory'
+    required: true          
+runs:
+  using: 'node12'
+  main: './index.js'

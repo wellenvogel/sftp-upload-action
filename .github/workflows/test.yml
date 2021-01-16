@@ -1,0 +1,22 @@
+on: [push]
+
+jobs:
+  test_upload:
+    runs-on: ubuntu-latest
+    name: test sftp upload
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+      
+      - name: test upload step
+        uses: ./ # Uses an action in the root directory
+        id: test1
+        with:
+          user: 'dummy1'
+          server: 'dummy2'
+          privateKey: 'dummy3'
+          localFile: 'test.txt'
+          remoteDir: 'dummy4'
+      
