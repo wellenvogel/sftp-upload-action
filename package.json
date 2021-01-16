@@ -4,13 +4,23 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "ncc build index.js -o dist --license licenses.txt"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wellenvogel/sftp-upload-action.git"
+  },
+  "keywords": ["GitHub",
+    "Actions",
+    "JavaScript"],
+  "author": "andreas@wellenvogel.net",
+  "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.6",
     "ssh2-sftp-client": "^6.0.1"
+  },
+  "devDependencies": {
+    "@vercel/ncc": "^0.27.0"
   }
 }

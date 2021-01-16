@@ -3,10 +3,10 @@ description: 'uploading to an sftp server using ssh2-sftp-client'
 inputs:
   user:  # id of input
     description: 'sftp user'
-    required: true
+    required: false
   server:
     description: 'sftp server'
-    required: true
+    required: false
   privateKey:
     description: 'ssh private key'
     required: false
@@ -21,4 +21,4 @@ inputs:
     required: true          
 runs:
   using: 'node12'
-  main: './index.js'
+  main: './dist/index.js'

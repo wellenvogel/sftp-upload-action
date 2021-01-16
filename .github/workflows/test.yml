@@ -10,13 +10,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
       
+      - name: Create Test file
+        run: echo "test" > test.txt  
       - name: test upload step
         uses: ./ # Uses an action in the root directory
         id: test1
         with:
-          user: 'dummy1'
-          server: 'dummy2'
-          privateKey: 'dummy3'
+          user: ${{secrets.REPO_USER}}
+          server: ${{secrets.REPO_SERVER}}
+          privateKey: ${{secrets.REPO_KEY}}
           localFile: 'test.txt'
-          remoteDir: 'dummy4'
+          remoteDir: ${{secrets.REMOTE_PATH}}
       
