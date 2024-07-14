@@ -11,16 +11,18 @@
     "type": "git",
     "url": "git+https://github.com/wellenvogel/sftp-upload-action.git"
   },
-  "keywords": ["GitHub",
+  "keywords": [
+    "GitHub",
     "Actions",
-    "JavaScript"],
+    "JavaScript"
+  ],
   "author": "andreas@wellenvogel.net",
   "license": "MIT",
   "dependencies": {
     "@actions/core": "^1.2.6",
-    "ssh2-sftp-client": "^6.0.1"
+    "ssh2-sftp-client": "^10.0.3"
   },
   "devDependencies": {
-    "@vercel/ncc": "^0.27.0"
+    "@vercel/ncc": "^0.38.1"
   }
 }
