@@ -1905,57 +1905,15 @@ function u8Concat (parts) {
 
 /***/ }),
 
-/***/ 2997:
-/***/ ((module) => {
+/***/ 4137:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
 "use strict";
 
 
-function assign(obj, props) {
-    for (const key in props) {
-        Object.defineProperty(obj, key, {
-            value: props[key],
-            enumerable: true,
-            configurable: true,
-        });
-    }
+const binding = __nccwpck_require__(4240);
 
-    return obj;
-}
-
-function createError(err, code, props) {
-    if (!err || typeof err === 'string') {
-        throw new TypeError('Please pass an Error to err-code');
-    }
-
-    if (!props) {
-        props = {};
-    }
-
-    if (typeof code === 'object') {
-        props = code;
-        code = undefined;
-    }
-
-    if (code != null) {
-        props.code = code;
-    }
-
-    try {
-        return assign(err, props);
-    } catch (_) {
-        props.message = err.message;
-        props.stack = err.stack;
-
-        const ErrClass = function () {};
-
-        ErrClass.prototype = Object.create(Object.getPrototypeOf(err));
-
-        return assign(new ErrClass(), props);
-    }
-}
-
-module.exports = createError;
+module.exports = binding.getCPUInfo;
 
 
 /***/ }),
@@ -2006,66 +1964,6 @@ if (typeof Object.create === 'function') {
     }
   }
 }
-
-
-/***/ }),
-
-/***/ 4742:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-"use strict";
-
-
-var errcode = __nccwpck_require__(2997);
-var retry = __nccwpck_require__(4347);
-
-var hasOwn = Object.prototype.hasOwnProperty;
-
-function isRetryError(err) {
-    return err && err.code === 'EPROMISERETRY' && hasOwn.call(err, 'retried');
-}
-
-function promiseRetry(fn, options) {
-    var temp;
-    var operation;
-
-    if (typeof fn === 'object' && typeof options === 'function') {
-        // Swap options and fn when using alternate signature (options, fn)
-        temp = options;
-        options = fn;
-        fn = temp;
-    }
-
-    operation = retry.operation(options);
-
-    return new Promise(function (resolve, reject) {
-        operation.attempt(function (number) {
-            Promise.resolve()
-            .then(function () {
-                return fn(function (err) {
-                    if (isRetryError(err)) {
-                        err = err.retried;
-                    }
-
-                    throw errcode(new Error('Retrying'), 'EPROMISERETRY', { retried: err });
-                }, number);
-            })
-            .then(resolve, function (err) {
-                if (isRetryError(err)) {
-                    err = err.retried;
-
-                    if (operation.retry(err || new Error())) {
-                        return;
-                    }
-                }
-
-                reject(err);
-            });
-        });
-    });
-}
-
-module.exports = promiseRetry;
 
 
 /***/ }),
@@ -5036,285 +4934,6 @@ if (process.env.READABLE_STREAM === 'disable' && Stream) {
 
 /***/ }),
 
-/***/ 4347:
-/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
-
-module.exports = __nccwpck_require__(6244);
-
-/***/ }),
-
-/***/ 6244:
-/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
-
-var RetryOperation = __nccwpck_require__(5369);
-
-exports.operation = function(options) {
-  var timeouts = exports.timeouts(options);
-  return new RetryOperation(timeouts, {
-      forever: options && options.forever,
-      unref: options && options.unref,
-      maxRetryTime: options && options.maxRetryTime
-  });
-};
-
-exports.timeouts = function(options) {
-  if (options instanceof Array) {
-    return [].concat(options);
-  }
-
-  var opts = {
-    retries: 10,
-    factor: 2,
-    minTimeout: 1 * 1000,
-    maxTimeout: Infinity,
-    randomize: false
-  };
-  for (var key in options) {
-    opts[key] = options[key];
-  }
-
-  if (opts.minTimeout > opts.maxTimeout) {
-    throw new Error('minTimeout is greater than maxTimeout');
-  }
-
-  var timeouts = [];
-  for (var i = 0; i < opts.retries; i++) {
-    timeouts.push(this.createTimeout(i, opts));
-  }
-
-  if (options && options.forever && !timeouts.length) {
-    timeouts.push(this.createTimeout(i, opts));
-  }
-
-  // sort the array numerically ascending
-  timeouts.sort(function(a,b) {
-    return a - b;
-  });
-
-  return timeouts;
-};
-
-exports.createTimeout = function(attempt, opts) {
-  var random = (opts.randomize)
-    ? (Math.random() + 1)
-    : 1;
-
-  var timeout = Math.round(random * opts.minTimeout * Math.pow(opts.factor, attempt));
-  timeout = Math.min(timeout, opts.maxTimeout);
-
-  return timeout;
-};
-
-exports.wrap = function(obj, options, methods) {
-  if (options instanceof Array) {
-    methods = options;
-    options = null;
-  }
-
-  if (!methods) {
-    methods = [];
-    for (var key in obj) {
-      if (typeof obj[key] === 'function') {
-        methods.push(key);
-      }
-    }
-  }
-
-  for (var i = 0; i < methods.length; i++) {
-    var method   = methods[i];
-    var original = obj[method];
-
-    obj[method] = function retryWrapper(original) {
-      var op       = exports.operation(options);
-      var args     = Array.prototype.slice.call(arguments, 1);
-      var callback = args.pop();
-
-      args.push(function(err) {
-        if (op.retry(err)) {
-          return;
-        }
-        if (err) {
-          arguments[0] = op.mainError();
-        }
-        callback.apply(this, arguments);
-      });
-
-      op.attempt(function() {
-        original.apply(obj, args);
-      });
-    }.bind(obj, original);
-    obj[method].options = options;
-  }
-};
-
-
-/***/ }),
-
-/***/ 5369:
-/***/ ((module) => {
-
-function RetryOperation(timeouts, options) {
-  // Compatibility for the old (timeouts, retryForever) signature
-  if (typeof options === 'boolean') {
-    options = { forever: options };
-  }
-
-  this._originalTimeouts = JSON.parse(JSON.stringify(timeouts));
-  this._timeouts = timeouts;
-  this._options = options || {};
-  this._maxRetryTime = options && options.maxRetryTime || Infinity;
-  this._fn = null;
-  this._errors = [];
-  this._attempts = 1;
-  this._operationTimeout = null;
-  this._operationTimeoutCb = null;
-  this._timeout = null;
-  this._operationStart = null;
-
-  if (this._options.forever) {
-    this._cachedTimeouts = this._timeouts.slice(0);
-  }
-}
-module.exports = RetryOperation;
-
-RetryOperation.prototype.reset = function() {
-  this._attempts = 1;
-  this._timeouts = this._originalTimeouts;
-}
-
-RetryOperation.prototype.stop = function() {
-  if (this._timeout) {
-    clearTimeout(this._timeout);
-  }
-
-  this._timeouts       = [];
-  this._cachedTimeouts = null;
-};
-
-RetryOperation.prototype.retry = function(err) {
-  if (this._timeout) {
-    clearTimeout(this._timeout);
-  }
-
-  if (!err) {
-    return false;
-  }
-  var currentTime = new Date().getTime();
-  if (err && currentTime - this._operationStart >= this._maxRetryTime) {
-    this._errors.unshift(new Error('RetryOperation timeout occurred'));
-    return false;
-  }
-
-  this._errors.push(err);
-
-  var timeout = this._timeouts.shift();
-  if (timeout === undefined) {
-    if (this._cachedTimeouts) {
-      // retry forever, only keep last error
-      this._errors.splice(this._errors.length - 1, this._errors.length);
-      this._timeouts = this._cachedTimeouts.slice(0);
-      timeout = this._timeouts.shift();
-    } else {
-      return false;
-    }
-  }
-
-  var self = this;
-  var timer = setTimeout(function() {
-    self._attempts++;
-
-    if (self._operationTimeoutCb) {
-      self._timeout = setTimeout(function() {
-        self._operationTimeoutCb(self._attempts);
-      }, self._operationTimeout);
-
-      if (self._options.unref) {
-          self._timeout.unref();
-      }
-    }
-
-    self._fn(self._attempts);
-  }, timeout);
-
-  if (this._options.unref) {
-      timer.unref();
-  }
-
-  return true;
-};
-
-RetryOperation.prototype.attempt = function(fn, timeoutOps) {
-  this._fn = fn;
-
-  if (timeoutOps) {
-    if (timeoutOps.timeout) {
-      this._operationTimeout = timeoutOps.timeout;
-    }
-    if (timeoutOps.cb) {
-      this._operationTimeoutCb = timeoutOps.cb;
-    }
-  }
-
-  var self = this;
-  if (this._operationTimeoutCb) {
-    this._timeout = setTimeout(function() {
-      self._operationTimeoutCb();
-    }, self._operationTimeout);
-  }
-
-  this._operationStart = new Date().getTime();
-
-  this._fn(this._attempts);
-};
-
-RetryOperation.prototype.try = function(fn) {
-  console.log('Using RetryOperation.try() is deprecated');
-  this.attempt(fn);
-};
-
-RetryOperation.prototype.start = function(fn) {
-  console.log('Using RetryOperation.start() is deprecated');
-  this.attempt(fn);
-};
-
-RetryOperation.prototype.start = RetryOperation.prototype.try;
-
-RetryOperation.prototype.errors = function() {
-  return this._errors;
-};
-
-RetryOperation.prototype.attempts = function() {
-  return this._attempts;
-};
-
-RetryOperation.prototype.mainError = function() {
-  if (this._errors.length === 0) {
-    return null;
-  }
-
-  var counts = {};
-  var mainError = null;
-  var mainErrorCount = 0;
-
-  for (var i = 0; i < this._errors.length; i++) {
-    var error = this._errors[i];
-    var message = error.message;
-    var count = (counts[message] || 0) + 1;
-
-    counts[message] = count;
-
-    if (count >= mainErrorCount) {
-      mainError = error;
-      mainErrorCount = count;
-    }
-  }
-
-  return mainError;
-};
-
-
-/***/ }),
-
 /***/ 1867:
 /***/ ((module, exports, __nccwpck_require__) => {
 
@@ -5507,11 +5126,9 @@ module.exports = {
 
 "use strict";
 
-
 const { Client } = __nccwpck_require__(5869);
 const fs = __nccwpck_require__(7561);
 const concat = __nccwpck_require__(5107);
-const promiseRetry = __nccwpck_require__(4742);
 const { join, parse } = __nccwpck_require__(9411);
 const {
   globalListener,
@@ -5527,11 +5144,18 @@ const {
 const { errorCode } = __nccwpck_require__(3232);
 
 class SftpClient {
-  constructor(clientName) {
-    this.version = '10.0.3';
+  constructor(
+    clientName = 'sftp',
+    callbacks = {
+      error: (err) => console.error(`Global error listener: ${err.message}`),
+      end: () => console.log('Global end listener: end event raised'),
+      close: () => console.log('Global close listener: close event raised'),
+    },
+  ) {
+    this.version = '12.0.1';
     this.client = new Client();
     this.sftp = undefined;
-    this.clientName = clientName || 'sftp';
+    this.clientName = clientName;
     this.endCalled = false;
     this.errorHandled = false;
     this.closeHandled = false;
@@ -5539,9 +5163,10 @@ class SftpClient {
     this.remotePlatform = 'unix';
     this.debug = undefined;
     this.promiseLimit = 10;
-    this.client.on('close', globalListener(this, 'close'));
-    this.client.on('end', globalListener(this, 'end'));
-    this.client.on('error', globalListener(this, 'error'));
+    this.eventCallbacks = callbacks;
+    this.client.on('close', globalListener(this, 'close', this.eventCallbacks));
+    this.client.on('end', globalListener(this, 'end', this.eventCallbacks));
+    this.client.on('error', globalListener(this, 'error', this.eventCallbacks));
   }
 
   debugMsg(msg, obj) {
@@ -5559,35 +5184,32 @@ class SftpClient {
   fmtError(err, name = 'sftp', eCode, retryCount) {
     let msg = '';
     let code = '';
-    const retry = retryCount
-      ? ` after ${retryCount} ${retryCount > 1 ? 'attempts' : 'attempt'}`
-      : '';
 
     if (err === undefined) {
       msg = `${name}: Undefined error - probably a bug!`;
       code = errorCode.generic;
     } else if (typeof err === 'string') {
-      msg = `${name}: ${err}${retry}`;
+      msg = `${name}: ${err}`;
       code = eCode || errorCode.generic;
     } else if (err.custom) {
-      msg = `${name}->${err.message}${retry}`;
+      msg = `${name}->${err.message}`;
       code = err.code;
     } else {
       switch (err.code) {
         case 'ENOTFOUND': {
-          msg = `${name}: Address lookup failed for host${retry}`;
+          msg = `${name}: Address lookup failed for host`;
           break;
         }
         case 'ECONNREFUSED': {
-          msg = `${name}: Remote host refused connection${retry}`;
+          msg = `${name}: Remote host refused connection`;
           break;
         }
         case 'ECONNRESET': {
-          msg = `${name}: Remote host has reset the connection: ${err.message}${retry}`;
+          msg = `${name}: Remote host has reset the connection: ${err.message}`;
           break;
         }
         default: {
-          msg = `${name}: ${err.message}${retry}`;
+          msg = `${name}: ${err.message}`;
         }
       }
       code = err.code || errorCode.generic;
@@ -5623,50 +5245,6 @@ class SftpClient {
   }
 
   /**
-   * @async
-   *
-   * Create a new SFTP connection to a remote SFTP server
-   *
-   * @param {Object} config - an SFTP configuration object
-   *
-   * @return {Promise<Object>} which will resolve to an sftp client object
-   */
-  getConnection(config) {
-    let doReady, listeners;
-    return new Promise((resolve, reject) => {
-      listeners = addTempListeners(this, 'getConnection', reject);
-      doReady = () => {
-        this.debugMsg('getConnection ready listener: got connection - promise resolved');
-        resolve(true);
-      };
-      this.on('ready', doReady);
-      try {
-        this.client.connect(config);
-      } catch (err) {
-        this.debugMsg(`getConnection: ${err.message}`);
-        reject(err);
-      }
-    }).finally(() => {
-      this.removeListener('ready', doReady);
-      removeTempListeners(this, listeners, 'getConnection');
-    });
-  }
-
-  getSftpChannel() {
-    return new Promise((resolve, reject) => {
-      this.client.sftp((err, sftp) => {
-        if (err) {
-          reject(this.fmtError(err, 'getSftpChannel', err.code));
-        } else {
-          this.sftp = sftp;
-          resolve(sftp);
-        }
-      });
-    });
-  }
-
-  /**
-   * @async
    *
    * Create a new SFTP connection to a remote SFTP server.
    * The connection options are the same as those offered
@@ -5676,64 +5254,50 @@ class SftpClient {
    *
    * @return {Promise<Object>} which will resolve to an sftp client object
    */
-  async connect(config) {
-    let listeners;
-
-    try {
-      listeners = addTempListeners(this, 'connect');
+  connect(config) {
+    let doReady, listeners;
+    return new Promise((resolve, reject) => {
+      listeners = addTempListeners(this, 'getConnection', reject);
       if (config.debug) {
         this.debug = config.debug;
         this.debugMsg('connect: Debugging turned on');
         this.debugMsg(`ssh2-sftp-client Version: ${this.version} `, process.versions);
       }
       this.promiseLimit = config.promiseLimit ?? 10;
-      if (this.sftp) {
-        throw this.fmtError(
-          'An existing SFTP connection is already defined',
-          'connect',
-          errorCode.connect,
-        );
-      }
-      const retryOpts = {
-        retries: config.retries ?? 1,
-        factor: config.retry_factor ?? 2,
-        minTimeout: config.retry_minTimeout ?? 25000,
-      };
-      await promiseRetry(retryOpts, async (retry, attempt) => {
-        try {
-          this.debugMsg(`connect: Connect attempt ${attempt}`);
-          await this.getConnection(config);
-        } catch (err) {
-          switch (err.code) {
-            case 'ENOTFOUND':
-            case 'ECONNREFUSED':
-            case 'ERR_SOCKET_BAD_PORT': {
-              throw err;
-            }
-            case undefined: {
-              if (
-                err.message.endsWith('All configured authentication methods failed') ||
-                err.message.startsWith('Cannot parse privateKey')
-              ) {
-                throw err;
-              }
-              retry(err);
-              break;
-            }
-            default: {
-              retry(err);
-            }
+
+      doReady = () => {
+        this.client.sftp((err, sftp) => {
+          if (err) {
+            reject(this.fmtError(err));
+          } else {
+            this.sftp = sftp;
+            resolve(sftp);
           }
+        });
+      };
+      this.on('ready', doReady);
+
+      try {
+        if (this.sftp) {
+          reject(
+            this.fmtError(
+              'An existing SFTP connection is already defined',
+              'connect',
+              errorCode.connect,
+            ),
+          );
+        } else {
+          this.client.connect(config);
         }
-      });
-      const sftp = await this.getSftpChannel();
-      return sftp;
-    } catch (err) {
-      this.end();
-      throw err.custom ? err : this.fmtError(err, 'connect');
-    } finally {
-      removeTempListeners(this, listeners, 'connect');
-    }
+      } catch (err) {
+        this.end();
+        reject(err);
+      }
+    }).finally(() => {
+      this.removeListener('ready', doReady);
+      removeTempListeners(this, listeners, 'getConnection');
+      this._resetEventFlags();
+    });
   }
 
   /**
@@ -5754,23 +5318,20 @@ class SftpClient {
       if (addListeners) {
         listeners = addTempListeners(this, 'realPath', reject);
       }
-      this.debugMsg(`realPath -> ${remotePath}`);
       this.sftp.realpath(remotePath, (err, absPath) => {
         if (err) {
           if (err.code === 2) {
-            this.debugMsg('realPath <- ""');
             resolve('');
           } else {
-            this.debugMsg(`${err.message} ${remotePath}`, 'realPath');
             reject(this.fmtError(`${err.message} ${remotePath}`, 'realPath', err.code));
           }
         }
-        this.debugMsg(`realPath <- ${absPath}`);
         resolve(absPath);
       });
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, 'realPath');
+        this._resetEventFlags();
       }
     });
   }
@@ -5821,7 +5382,6 @@ class SftpClient {
             isFIFO: stats.isFIFO(),
             isSocket: stats.isSocket(),
           };
-          this.debugMsg('_xstat: result = ', result);
           resolve(result);
         }
       };
@@ -5836,6 +5396,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, '_xstat');
+        this._resetEventFlags();
       }
     });
   }
@@ -5890,13 +5451,11 @@ class SftpClient {
    *                   object if it does
    */
   async exists(remotePath) {
-    this.debugMsg(`exists: remotePath = ${remotePath}`);
     try {
       if (remotePath === '.') {
         return 'd';
       }
       const info = await this.lstat(remotePath);
-      this.debugMsg('exists: <- ', info);
       if (info.isDirectory) {
         return 'd';
       } else if (info.isSymbolicLink) {
@@ -5968,6 +5527,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, 'list');
+        this._resetEventFlags();
       }
     });
   }
@@ -6008,21 +5568,19 @@ class SftpClient {
           pipeOptions: { ...options?.pipeOptions, end: true },
         };
         rdr = this.sftp.createReadStream(remotePath, options.readStreamOptions);
-        rdr.once('error', (err) => {
-          if (dst && typeof dst !== 'string' && !dst.destroyed) {
-            dst.destroy();
+        rdr.on('error', (err) => {
+          if (dst && typeof dst === 'string' && wtr && !wtr.destroyed) {
+            wtr.destroy();
           }
           reject(this.fmtError(`${err.message} ${remotePath}`, 'get', err.code));
         });
         if (dst === undefined) {
           // no dst specified, return buffer of data
-          this.debugMsg('get resolving buffer of data');
           wtr = concat((buff) => {
             resolve(buff);
           });
         } else if (typeof dst === 'string') {
           // dst local file path
-          this.debugMsg('get returning local file');
           const localCheck = haveLocalCreate(dst);
           if (localCheck.status) {
             wtr = fs.createWriteStream(dst, options.writeStreamOptions);
@@ -6036,10 +5594,9 @@ class SftpClient {
             );
           }
         } else {
-          this.debugMsg('get: returning data into supplied stream');
           wtr = dst;
         }
-        wtr.once('error', (err) => {
+        wtr.on('error', (err) => {
           reject(
             this.fmtError(
               `${err.message} ${typeof dst === 'string' ? dst : '<stream>'}`,
@@ -6050,18 +5607,20 @@ class SftpClient {
         });
         rdr.once('end', () => {
           if (typeof dst === 'string') {
-            this.debugMsg('get: resolving with dst filename');
             resolve(dst);
           } else if (dst !== undefined) {
-            this.debugMsg('get: resolving with writer stream object');
             resolve(wtr);
           }
         });
         rdr.pipe(wtr, options.pipeOptions);
       }
     }).finally(() => {
+      if (rdr && !rdr.destroyed) {
+        rdr.destroy();
+      }
       if (addListeners) {
         removeTempListeners(this, listeners, 'get');
+        this._resetEventFlags();
       }
     });
   }
@@ -6097,6 +5656,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, '_fastGet');
+        this._resetEventFlags();
       }
     });
   }
@@ -6163,13 +5723,13 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, '_fastPut');
+        this._resetEventFlags();
       }
     });
   }
 
   async fastPut(localPath, remotePath, options) {
     try {
-      this.debugMsg(`fastPut -> local ${localPath} remote ${remotePath}`);
       const localCheck = haveLocalAccess(localPath);
       if (!localCheck.status) {
         throw this.fmtError(
@@ -6220,7 +5780,10 @@ class SftpClient {
       };
       if (haveConnection(this, '_put', reject)) {
         wtr = this.sftp.createWriteStream(rPath, opts.writeStreamOptions);
-        wtr.once('error', (err) => {
+        wtr.on('error', (err) => {
+          if (typeof lPath === 'string' && rdr && !rdr.destroyed) {
+            rdr.destroy();
+          }
           reject(
             this.fmtError(
               `Write stream error: ${err.message} ${rPath}`,
@@ -6233,14 +5796,14 @@ class SftpClient {
           resolve(`Uploaded data stream to ${rPath}`);
         });
         if (lPath instanceof Buffer) {
-          this.debugMsg('put source is a buffer');
           wtr.end(lPath);
         } else {
-          rdr =
-            typeof lPath === 'string'
-              ? fs.createReadStream(lPath, opts.readStreamOptions)
-              : lPath;
-          rdr.once('error', (err) => {
+          if (typeof lPath === 'string') {
+            rdr = fs.createReadStream(lPath, opts.readStreamOptions);
+          } else {
+            rdr = lPath;
+          }
+          rdr.on('error', (err) => {
             reject(
               this.fmtError(
                 `Read stream error: ${err.message} ${
@@ -6255,8 +5818,12 @@ class SftpClient {
         }
       }
     }).finally(() => {
+      if (wtr && !wtr.destroyed) {
+        wtr.destroy();
+      }
       if (addListeners) {
         removeTempListeners(this, listeners, '_put');
+        this._resetEventFlags();
       }
     });
   }
@@ -6294,7 +5861,6 @@ class SftpClient {
         listeners = addTempListeners(this, '_append', reject);
       }
       if (haveConnection(this, '_append', reject)) {
-        this.debugMsg(`append -> remote: ${rPath} `, opts);
         opts.flags = 'a';
         const stream = this.sftp.createWriteStream(rPath, opts);
         stream.on('error', (err) => {
@@ -6313,6 +5879,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, '_append');
+        this._resetEventFlags();
       }
     });
   }
@@ -6334,7 +5901,7 @@ class SftpClient {
           errorCode.badPath,
         );
       }
-      await this._append(input, remotePath, options);
+      return await this._append(input, remotePath, options);
     } catch (e) {
       throw e.custom ? e : this.fmtError(e.message, 'append', e.code);
     }
@@ -6384,6 +5951,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, '_doMkdir');
+        this._resetEventFlags();
       }
     });
   }
@@ -6449,7 +6017,6 @@ class SftpClient {
       let listeners;
       return new Promise((resolve, reject) => {
         listeners = addTempListeners(this, '_rmdir', reject);
-        this.debugMsg(`_rmdir: dir = ${dir}`);
         this.sftp.rmdir(dir, (err) => {
           if (err) {
             reject(this.fmtError(`${err.message} ${dir}`, 'rmdir', err.code));
@@ -6458,6 +6025,7 @@ class SftpClient {
         });
       }).finally(() => {
         removeTempListeners(this, listeners, '_rmdir');
+        this._resetEventFlags();
       });
     };
 
@@ -6465,7 +6033,6 @@ class SftpClient {
       let listeners;
       return new Promise((resolve, reject) => {
         listeners = addTempListeners(this, '_delFiles', reject);
-        this.debugMsg(`_delFiles: path = ${path} fileList = ${fileList}`);
         const pList = [];
         for (const f of fileList) {
           pList.push(this.delete(`${path}/${f.name}`, true, false));
@@ -6481,10 +6048,8 @@ class SftpClient {
     };
 
     try {
-      this.debugMsg(`rmdir: dir = ${remoteDir} recursive = ${recursive}`);
       const absPath = await normalizeRemotePath(this, remoteDir);
       const existStatus = await this.exists(absPath);
-      this.debugMsg(`rmdir: ${absPath} existStatus = ${existStatus}`);
       if (!existStatus) {
         throw this.fmtError(
           `Bad Path: ${remoteDir}: No such directory`,
@@ -6500,19 +6065,14 @@ class SftpClient {
         );
       }
       if (!recursive) {
-        this.debugMsg('rmdir: non-recursive - just try to remove it');
         return await _rmdir(absPath);
       }
       const listing = await this.list(absPath);
-      this.debugMsg(`rmdir: listing count = ${listing.length}`);
       if (!listing.length) {
-        this.debugMsg('rmdir: No sub dir or files, just rmdir');
         return await _rmdir(absPath);
       }
       const fileList = listing.filter((i) => i.type !== 'd');
-      this.debugMsg(`rmdir: dir content files to remove = ${fileList.length}`);
       const dirList = listing.filter((i) => i.type === 'd');
-      this.debugMsg(`rmdir: sub-directories to remove = ${dirList.length}`);
       await _delFiles(absPath, fileList);
       for (const d of dirList) {
         await this.rmdir(`${absPath}/${d.name}`, true);
@@ -6555,6 +6115,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, 'delete');
+        this._resetEventFlags();
       }
     });
   }
@@ -6593,6 +6154,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, 'rename');
+        this._resetEventFlags();
       }
     });
   }
@@ -6631,6 +6193,7 @@ class SftpClient {
       }
     }).finally(() => {
       removeTempListeners(this, listeners, 'posixRename');
+      this._resetEventFlags();
     });
   }
 
@@ -6662,6 +6225,7 @@ class SftpClient {
     }).finally(() => {
       if (addListeners) {
         removeTempListeners(this, listeners, 'chmod');
+        this._resetEventFlags();
       }
     });
   }
@@ -6747,16 +6311,13 @@ class SftpClient {
         throw this.fmtError(`${e.message} ${srcDir} to ${dstDir}`, 'uploadFiles', e.code);
       } finally {
         removeTempListeners(this, listeners, uploadFiles);
+        this._resetEventFlags();
       }
     };
 
     try {
       haveConnection(this, 'uploadDir');
-      this.debugMsg(
-        `uploadDir: srcDir = ${srcDir} dstDir = ${dstDir} options = ${options}`,
-      );
       const { remoteDir, remoteStatus } = await getRemoteStatus(dstDir);
-      this.debugMsg(`uploadDir: remoteDir = ${remoteDir} remoteStatus = ${remoteStatus}`);
       checkLocalStatus(srcDir);
       if (!remoteStatus) {
         await this._mkdir(remoteDir, true);
@@ -6765,7 +6326,6 @@ class SftpClient {
         encoding: 'utf8',
         withFileTypes: true,
       });
-      this.debugMsg(`uploadDir: dirEntries = ${dirEntries}`);
       if (options?.filter) {
         dirEntries = dirEntries.filter((item) =>
           options.filter(join(srcDir, item.name), item.isDirectory()),
@@ -6773,8 +6333,6 @@ class SftpClient {
       }
       const dirUploads = dirEntries.filter((item) => item.isDirectory());
       const fileUploads = dirEntries.filter((item) => !item.isDirectory());
-      this.debugMsg(`uploadDir: dirUploads = ${dirUploads}`);
-      this.debugMsg(`uploadDir: fileUploads = ${fileUploads}`);
       await uploadFiles(srcDir, remoteDir, fileUploads, options?.useFastput);
       for (const d of dirUploads) {
         const src = join(srcDir, d.name);
@@ -6879,6 +6437,7 @@ class SftpClient {
         );
       } finally {
         removeTempListeners(this, listeners, 'downloadFiles');
+        this._resetEventFlags();
       }
     };
 
@@ -6925,7 +6484,8 @@ class SftpClient {
     } catch (err) {
       throw err.custom ? err : this.fmtError(err.message, 'createReadStream', err.code);
     } finally {
-      removeTempListeners(this, listeners, 'createReadStreame');
+      removeTempListeners(this, listeners, 'createReadStream');
+      this._resetEventFlags();
     }
   }
 
@@ -6951,6 +6511,7 @@ class SftpClient {
       throw err.custom ? err : this.fmtError(err.message, 'createWriteStream', err.code);
     } finally {
       removeTempListeners(this, listeners, 'createWriteStream');
+      this._resetEventFlags();
     }
   }
 
@@ -7014,6 +6575,7 @@ class SftpClient {
       throw err.custom ? err : this.fmtError(err, 'rcopy');
     } finally {
       removeTempListeners(this, listeners, 'rcopy');
+      this._resetEventFlags();
     }
   }
   /**
@@ -7035,6 +6597,7 @@ class SftpClient {
       };
       this.on('close', endCloseHandler);
       if (this.sftp) {
+        this.debugMsg('end: Ending SFTP connection');
         this.client.end();
       } else {
         // no actual connection exists - just resolve
@@ -7044,7 +6607,7 @@ class SftpClient {
     }).finally(() => {
       removeTempListeners(this, listeners, 'end');
       this.removeListener('close', endCloseHandler);
-      this.endCalled = false;
+      this._resetEventFlags();
     });
   }
 }
@@ -7057,9 +6620,57 @@ module.exports = SftpClient;
 /***/ 9432:
 /***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-const fs = __nccwpck_require__(7561);
-const path = __nccwpck_require__(9411);
+const { statSync, constants, accessSync } = __nccwpck_require__(7561);
+const { dirname } = __nccwpck_require__(9411);
 const { errorCode } = __nccwpck_require__(3232);
+
+function eventHandled(client) {
+  if (client.errorHandled || client.endHandled || client.closeHandled) {
+    return true;
+  }
+  return false;
+}
+
+function globalListener(client, evt, eventCallbacks) {
+  if (evt === 'error') {
+    return (err) => {
+      if (client.errorHandled) {
+        client.debugMsg(`Global error event: Ignoring handled error ${err.message}`);
+        return;
+      }
+      client.debugMsg(`Global error event: ${err.message}`);
+      client.errorHandled = true;
+      if (eventCallbacks?.error) {
+        eventCallbacks.error(err);
+      }
+    };
+  }
+  if (evt === 'end') {
+    return () => {
+      if (client.endCalled || client.endHandled) {
+        client.debugMsg('Global end event: Ignoring handled end event');
+        return;
+      }
+      client.debugMsg('Global end event: Handling end event');
+      client.endHandled = true;
+      if (eventCallbacks?.end) {
+        eventCallbacks.end();
+      }
+    };
+  }
+  return () => {
+    if (client.endCalled || client.closeHandled) {
+      client.debugMsg('Global close event: Ignoring handled close event');
+    } else {
+      client.debugMsg('Global close event: Handling close event');
+      client.closeHandled = true;
+      client.sftp = undefined;
+      if (eventCallbacks?.close) {
+        eventCallbacks.close();
+      }
+    }
+  };
+}
 
 /**
  * Simple default error listener. Will reformat the error message and
@@ -7069,12 +6680,21 @@ const { errorCode } = __nccwpck_require__(3232);
  * @throws {Error} Throws new error
  */
 function errorListener(client, name, reject) {
-  const fn = (err) => {
-    if (client.endCalled || client.errorHandled) {
+  const fn = function (err) {
+    if (eventHandled(client)) {
       // error already handled or expected - ignore
-      client.debugMsg(`${name} errorListener - ignoring handled error`);
+      client.debugMsg(`${name} errorListener - ignoring handled error ${err.message}`);
       return;
     }
+    // ignore ECONNRESET if end() has been called, as we can be confident that a reset connection is definitely dead
+    if (name === 'end' && client.endCalled && err.code === 'ECONNRESET') {
+      client.debugMsg(`${name} errorListener - ignoring ${err.message} on end`);
+      return;
+    }
+    if (err.code === 'ECONNRESET') {
+      client.sftp = undefined;
+    }
+    client.debugMsg(`${name} errorListener - handling error ${err.message}`);
     client.errorHandled = true;
     const newError = new Error(`${name}: ${err.message}`);
     newError.code = err.code;
@@ -7087,55 +6707,52 @@ function errorListener(client, name, reject) {
   return fn;
 }
 
-function globalListener(client, evt) {
-  return () => {
-    if (client.endCalled || client.errorHandled || client.closeHandled) {
-      // we are processing an expected event handled elsewhere
-      client.debugMsg(`Global ${evt} event: Ignoring expected and handled event`);
-    } else {
-      client.debugMsg(`Global ${evt} event: Handling unexpected event`);
-      client.sftp = undefined;
-    }
-  };
-}
-
-function endListener(client, name) {
+function endListener(client, name, reject) {
   const fn = function () {
     client.sftp = undefined;
-    if (client.endCalled || client.endHandled || client.errorHandled) {
+    if (client.endCalled || eventHandled(client)) {
       // end event already handled - ignore
-      client.debugMsg(`${name} endListener - handled end event`);
+      client.debugMsg(`${name} endListener - ignoring handled end event`);
       return;
     }
     client.endHandled = true;
-    client.debugMsg(`${name} Unexpected end event`);
+    client.debugMsg(`${name} endListener - handling unexpected end event`);
+    const newError = new Error(`${name}: Unexpected end event`);
+    newError.code = errorCode.generic;
+    if (reject) {
+      reject(newError);
+    } else {
+      throw newError;
+    }
   };
   return fn;
 }
 
-function closeListener(client, name) {
+function closeListener(client, name, reject) {
   const fn = function () {
     client.sftp = undefined;
-    if (
-      client.endCalled ||
-      client.closeHandled ||
-      client.errorHandled ||
-      client.endHandled
-    ) {
+    if (client.endCalled || eventHandled(client)) {
       // handled or expected close event - ignore
-      client.debugMsg(`${name} closeListener - handled close event`);
+      client.debugMsg(`${name} closeListener - ignoring handled close event`);
       return;
     }
     client.closeHandled = true;
-    client.debugMsg(`${name} Unexpected close event`);
+    client.debugMsg(`${name} closeListener - handling unexpected close event`);
+    const newError = new Error(`${name}: Unexpected close event`);
+    newError.code = errorCode.generic;
+    if (reject) {
+      reject(newError);
+    } else {
+      throw newError;
+    }
   };
   return fn;
 }
 
 function addTempListeners(client, name, reject) {
   const listeners = {
-    end: endListener(client, name),
-    close: closeListener(client, name),
+    end: endListener(client, name, reject),
+    close: closeListener(client, name, reject),
     error: errorListener(client, name, reject),
   };
   client.on('end', listeners.end);
@@ -7168,7 +6785,7 @@ function removeTempListeners(client, listeners, name) {
  * @returns {string | boolean} returns a string for object type if it exists, false otherwise
  */
 function localExists(filePath) {
-  const stats = fs.statSync(filePath, { throwIfNoEntry: false });
+  const stats = statSync(filePath, { throwIfNoEntry: false });
   if (!stats) {
     return false;
   } else if (stats.isDirectory()) {
@@ -7199,11 +6816,10 @@ function localExists(filePath) {
  * @returns {Object} with properties status, type, details and code
  */
 function haveLocalAccess(filePath, mode = 'r') {
-  const accessMode =
-    fs.constants.F_OK | (mode === 'w') ? fs.constants.W_OK : fs.constants.R_OK;
+  const accessMode = constants.F_OK | (mode === 'w') ? constants.W_OK : constants.R_OK;
 
   try {
-    fs.accessSync(filePath, accessMode);
+    accessSync(filePath, accessMode);
     const type = localExists(filePath);
     return {
       status: true,
@@ -7269,7 +6885,7 @@ function haveLocalCreate(filePath) {
       };
     }
     // to create it, parent must be directory and writeable
-    const dirPath = path.dirname(filePath);
+    const dirPath = dirname(filePath);
     const localCheck = haveLocalAccess(dirPath, 'w');
     if (!localCheck.status) {
       // no access to parent directory
@@ -9097,16 +8713,14 @@ class Client extends EventEmitter {
     let hostVerifier;
     if (typeof cfg.hostVerifier === 'function') {
       const hashCb = cfg.hostVerifier;
-      let hasher;
+      let hashAlgo;
       if (HASHES.indexOf(cfg.hostHash) !== -1) {
         // Default to old behavior of hashing on user's behalf
-        hasher = createHash(cfg.hostHash);
+        hashAlgo = cfg.hostHash;
       }
       hostVerifier = (key, verify) => {
-        if (hasher) {
-          hasher.update(key);
-          key = hasher.digest('hex');
-        }
+        if (hashAlgo)
+          key = createHash(hashAlgo).update(key).digest('hex');
         const ret = hashCb(key, verify);
         if (ret !== undefined)
           verify(ret);
@@ -10378,9 +9992,14 @@ class Client extends EventEmitter {
     return this;
   }
 
-  sftp(cb) {
+  sftp(env, cb) {
     if (!this._sock || !isWritable(this._sock))
       throw new Error('Not connected');
+
+    if (typeof env === 'function') {
+      cb = env;
+      env = undefined;
+    }
 
     openChannel(this, 'sftp', (err, sftp) => {
       if (err) {
@@ -10388,7 +10007,7 @@ class Client extends EventEmitter {
         return;
       }
 
-      reqSubsystem(sftp, 'sftp', (err, sftp_) => {
+      const reqSubsystemCb = (err, sftp_) => {
         if (err) {
           cb(err);
           return;
@@ -10434,7 +10053,20 @@ class Client extends EventEmitter {
             .on('close', onExit);
 
         sftp._init();
-      });
+      };
+
+      if (typeof env === 'object' && env !== null) {
+        reqEnv(sftp, env, (err) => {
+          if (err) {
+            cb(err);
+            return;
+          }
+
+          reqSubsystem(sftp, 'sftp', reqSubsystemCb);
+        });
+      } else {
+        reqSubsystem(sftp, 'sftp', reqSubsystemCb);
+      }
     });
 
     return this;
@@ -10668,16 +10300,33 @@ function reqExec(chan, cmd, opts, cb) {
   chan._client._protocol.exec(chan.outgoing.id, cmd, true);
 }
 
-function reqEnv(chan, env) {
-  if (chan.outgoing.state !== 'open')
+function reqEnv(chan, env, cb) {
+  const wantReply = (typeof cb === 'function');
+
+  if (chan.outgoing.state !== 'open') {
+    if (wantReply)
+      cb(new Error('Channel is not open'));
     return;
+  }
+
+  if (wantReply) {
+    chan._callbacks.push((had_err) => {
+      if (had_err) {
+        cb(had_err !== true
+           ? had_err
+           : new Error('Unable to set environment'));
+        return;
+      }
+      cb();
+    });
+  }
 
   const keys = Object.keys(env || {});
 
   for (let i = 0; i < keys.length; ++i) {
     const key = keys[i];
     const val = env[key];
-    chan._client._protocol.env(chan.outgoing.id, key, val, false);
+    chan._client._protocol.env(chan.outgoing.id, key, val, wantReply);
   }
 }
 
@@ -13860,7 +13509,7 @@ const {
   Readable: ReadableStream,
   Writable: WritableStream
 } = __nccwpck_require__(2781);
-const { inherits, isDate } = __nccwpck_require__(3837);
+const { inherits, types: { isDate } } = __nccwpck_require__(3837);
 
 const FastBuffer = Buffer[Symbol.species];
 
@@ -17917,7 +17566,7 @@ const crypto = __nccwpck_require__(6113);
 
 let cpuInfo;
 try {
-  cpuInfo = __nccwpck_require__(7295)();
+  cpuInfo = __nccwpck_require__(4137)();
 } catch {}
 
 const { bindingAvailable, CIPHER_INFO, MAC_INFO } = __nccwpck_require__(5708);
@@ -18304,7 +17953,7 @@ let AESGCMDecipher;
 let ChaChaPolyDecipher;
 let GenericDecipher;
 try {
-  binding = __nccwpck_require__(9623);
+  binding = __nccwpck_require__(9041);
   ({ AESGCMCipher, ChaChaPolyCipher, GenericCipher,
      AESGCMDecipher, ChaChaPolyDecipher, GenericDecipher } = binding);
 } catch {}
@@ -23613,7 +23262,7 @@ const BaseKey = {
       this.type === parsed.type
       && this[SYM_PRIV_PEM] === parsed[SYM_PRIV_PEM]
       && this[SYM_PUB_PEM] === parsed[SYM_PUB_PEM]
-      && this[SYM_PUB_SSH] === parsed[SYM_PUB_SSH]
+      && this[SYM_PUB_SSH].equals(parsed[SYM_PUB_SSH])
     );
   },
 };
@@ -30483,19 +30132,17 @@ module.exports = __nccwpck_require__(3837).deprecate;
 
 /***/ }),
 
-/***/ 9623:
-/***/ ((module) => {
+/***/ 4240:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-module.exports = eval("require")("./crypto/build/Release/sshcrypto.node");
-
+module.exports = require(__nccwpck_require__.ab + "build/Release/cpufeatures.node")
 
 /***/ }),
 
-/***/ 7295:
-/***/ ((module) => {
+/***/ 9041:
+/***/ ((module, __unused_webpack_exports, __nccwpck_require__) => {
 
-module.exports = eval("require")("cpu-features");
-
+module.exports = require(__nccwpck_require__.ab + "lib/protocol/crypto/build/Release/sshcrypto.node")
 
 /***/ }),
 
@@ -30647,7 +30294,7 @@ module.exports = require("zlib");
 /***/ ((module) => {
 
 "use strict";
-module.exports = {"i8":"1.15.0"};
+module.exports = {"i8":"1.17.0"};
 
 /***/ })
 
